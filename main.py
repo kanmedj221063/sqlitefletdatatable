@@ -4,7 +4,7 @@ import sqlite3
 
 class Database:
     def __init__(self):
-        self.conn = sqlite3.connect("users.db",check_same_thread=False)
+        self.conn = sqlite3.connect("users.db", check_same_thread=False)
         self.cursor = self.conn.cursor()
         self.create_table()
 
@@ -158,6 +158,7 @@ class DisplayPage(ft.UserControl):
         self.edit_dialog = None
 
     def build(self):
+        # Create the DataTable
         self.data_table = ft.DataTable(
             columns=[
                 ft.DataColumn(ft.Text("Actions")),
@@ -168,7 +169,17 @@ class DisplayPage(ft.UserControl):
                 ft.DataColumn(ft.Text("Adresses")),
                 ft.DataColumn(ft.Text("NCIN")),
             ],
-            rows=[]
+            rows=[],
+        )
+        
+        # Wrap the DataTable in a scrollable container
+        table_container = ft.Container(
+            content=ft.Column(
+                [ft.Row([self.data_table], scroll=ft.ScrollMode.ALWAYS)],
+                scroll=ft.ScrollMode.ALWAYS
+            ),
+            expand=True,
+            height=400  # Adjust this value based on your needs
         )
         
         return ft.Container(
@@ -181,12 +192,13 @@ class DisplayPage(ft.UserControl):
                         bgcolor=ft.colors.BLUE,
                         color=ft.colors.WHITE
                     ),
-                    self.data_table
+                    table_container
                 ],
-                scroll=ft.ScrollMode.AUTO
+                expand=True
             ),
             padding=20,
-            bgcolor=ft.colors.WHITE
+            bgcolor=ft.colors.WHITE,
+            expand=True
         )
 
     def refresh_data(self, e=None):
@@ -278,6 +290,8 @@ class DisplayPage(ft.UserControl):
 def main(page: ft.Page):
     page.title = "User Management System"
     page.theme_mode = ft.ThemeMode.LIGHT
+    page.window_width = 1000  # Set initial window width
+    page.window_height = 800  # Set initial window height
     db = Database()
     
     def switch_to_entry():
@@ -313,4 +327,5 @@ def main(page: ft.Page):
     page.add(navbar, login_page)
 
 
-ft.app(target=main)
+if __name__ == "__main__":
+    ft.app(target=main)
