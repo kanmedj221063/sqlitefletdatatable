@@ -10,33 +10,36 @@ class Database:
 
     def create_table(self):
         self.cursor.execute('''CREATE TABLE IF NOT EXISTS users
-                           (nom TEXT, prenom TEXT, age INTEGER, 
-                            email TEXT, adresses TEXT, Ncin TEXT PRIMARY KEY)''')
+                           (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            nom TEXT, prenom TEXT, age INTEGER, 
+                            email TEXT, adresses TEXT, Ncin TEXT UNIQUE)''')
         self.conn.commit()
 
     def insert_user(self, nom, prenom, age, email, adresses, ncin):
-        self.cursor.execute('''INSERT INTO users VALUES (?, ?, ?, ?, ?, ?)''',
+        self.cursor.execute('''INSERT INTO users (nom, prenom, age, email, adresses, Ncin) 
+                          VALUES (?, ?, ?, ?, ?, ?)''',
                           (nom, prenom, age, email, adresses, ncin))
         self.conn.commit()
 
     def get_all_users(self):
-        self.cursor.execute('''SELECT * FROM users''')
+        self.cursor.execute('''SELECT id, nom, prenom, age, email, adresses, Ncin FROM users''')
         return self.cursor.fetchall()
 
-    def update_user(self, nom, prenom, age, email, adresses, ncin):
+    def update_user(self, id, nom, prenom, age, email, adresses, ncin):
         self.cursor.execute('''UPDATE users SET nom=?, prenom=?, age=?, 
-                           email=?, adresses=? WHERE Ncin=?''',
-                          (nom, prenom, age, email, adresses, ncin))
+                           email=?, adresses=?, Ncin=? WHERE id=?''',
+                          (nom, prenom, age, email, adresses, ncin, id))
         self.conn.commit()
 
-    def delete_user(self, ncin):
-        self.cursor.execute('''DELETE FROM users WHERE Ncin=?''', (ncin,))
+    def delete_user(self, id):
+        self.cursor.execute('''DELETE FROM users WHERE id=?''', (id,))
         self.conn.commit()
 
 
 class LoginPage(ft.UserControl):
     def __init__(self, page: ft.Page, switch_to_entry):
         super().__init__()
+        page.scroll="auto"
         self.page = page
         self.switch_to_entry = switch_to_entry
         
@@ -57,9 +60,7 @@ class LoginPage(ft.UserControl):
                         color=ft.colors.WHITE
                     )
                 ],
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER
             ),
-            alignment=ft.alignment.center,
             padding=20,
             bgcolor=ft.colors.WHITE
         )
@@ -77,9 +78,10 @@ class EntryPage(ft.UserControl):
     def __init__(self, page: ft.Page, db: Database, switch_to_display):
         super().__init__()
         self.page = page
+        page.scroll="auto"
         self.db = db
         self.switch_to_display = switch_to_display
-
+        
     def build(self):
         self.nom = ft.TextField(label="Nom", width=300)
         self.prenom = ft.TextField(label="Prenom", width=300)
@@ -154,14 +156,15 @@ class DisplayPage(ft.UserControl):
     def __init__(self, page: ft.Page, db: Database):
         super().__init__()
         self.page = page
+        page.scroll="auto"
         self.db = db
         self.edit_dialog = None
 
     def build(self):
-        # Create the DataTable
         self.data_table = ft.DataTable(
             columns=[
                 ft.DataColumn(ft.Text("Actions")),
+                ft.DataColumn(ft.Text("ID")),
                 ft.DataColumn(ft.Text("Nom")),
                 ft.DataColumn(ft.Text("Prenom")),
                 ft.DataColumn(ft.Text("Age")),
@@ -172,14 +175,13 @@ class DisplayPage(ft.UserControl):
             rows=[],
         )
         
-        # Wrap the DataTable in a scrollable container
         table_container = ft.Container(
             content=ft.Column(
                 [ft.Row([self.data_table], scroll=ft.ScrollMode.ALWAYS)],
                 scroll=ft.ScrollMode.ALWAYS
             ),
             expand=True,
-            height=400  # Adjust this value based on your needs
+            height=400
         )
         
         return ft.Container(
@@ -219,16 +221,17 @@ class DisplayPage(ft.UserControl):
                                 ft.IconButton(
                                     icon=ft.icons.DELETE,
                                     icon_color=ft.colors.RED,
-                                    on_click=lambda e, ncin=user[5]: self.delete_user(ncin)
+                                    on_click=lambda e, id=user[0]: self.delete_user(id)
                                 )
                             ])
                         ),
-                        ft.DataCell(ft.Text(user[0])),
-                        ft.DataCell(ft.Text(user[1])),
-                        ft.DataCell(ft.Text(user[2])),
-                        ft.DataCell(ft.Text(user[3])),
-                        ft.DataCell(ft.Text(user[4])),
-                        ft.DataCell(ft.Text(user[5])),
+                        ft.DataCell(ft.Text(user[0])),  # ID
+                        ft.DataCell(ft.Text(user[1])),  # Nom
+                        ft.DataCell(ft.Text(user[2])),  # Prenom
+                        ft.DataCell(ft.Text(user[3])),  # Age
+                        ft.DataCell(ft.Text(user[4])),  # Email
+                        ft.DataCell(ft.Text(user[5])),  # Adresses
+                        ft.DataCell(ft.Text(user[6])),  # NCIN
                     ]
                 )
             )
@@ -236,22 +239,24 @@ class DisplayPage(ft.UserControl):
 
     def edit_user(self, user):
         edit_fields = {
-            'nom': ft.TextField(label="Nom", value=user[0]),
-            'prenom': ft.TextField(label="Prenom", value=user[1]),
-            'age': ft.TextField(label="Age", value=str(user[2])),
-            'email': ft.TextField(label="Email", value=user[3]),
-            'adresses': ft.TextField(label="Adresses", value=user[4]),
+            'nom': ft.TextField(label="Nom", value=user[1]),
+            'prenom': ft.TextField(label="Prenom", value=user[2]),
+            'age': ft.TextField(label="Age", value=str(user[3])),
+            'email': ft.TextField(label="Email", value=user[4]),
+            'adresses': ft.TextField(label="Adresses", value=user[5]),
+            'ncin': ft.TextField(label="NCIN", value=user[6])
         }
 
         def save_changes(e):
             try:
                 self.db.update_user(
+                    user[0],  # ID
                     edit_fields['nom'].value,
                     edit_fields['prenom'].value,
                     int(edit_fields['age'].value),
                     edit_fields['email'].value,
                     edit_fields['adresses'].value,
-                    user[5]  # Using existing NCIN for update
+                    edit_fields['ncin'].value
                 )
                 self.page.show_snack_bar(
                     ft.SnackBar(content=ft.Text("User updated successfully!"))
@@ -262,25 +267,28 @@ class DisplayPage(ft.UserControl):
                 self.page.show_snack_bar(
                     ft.SnackBar(content=ft.Text(f"Error: {str(ex)}"))
                 )
-
+                
         self.edit_dialog = ft.AlertDialog(
             title=ft.Text("Edit User"),
             content=ft.Column(
                 controls=list(edit_fields.values()),
                 scroll=ft.ScrollMode.AUTO
             ),
+            
             actions=[
                 ft.ElevatedButton("Save", on_click=save_changes),
-                ft.ElevatedButton("Cancel", 
-                    on_click=lambda e: setattr(self.edit_dialog, 'open', False))
+                ft.ElevatedButton("Cancel",                                 
+                on_click=lambda e:  setattr(self.edit_dialog, 'open', False))
+                
             ]
+            
         )
         self.page.dialog = self.edit_dialog
         self.edit_dialog.open = True
         self.page.update()
 
-    def delete_user(self, ncin):
-        self.db.delete_user(ncin)
+    def delete_user(self, id):
+        self.db.delete_user(id)
         self.page.show_snack_bar(
             ft.SnackBar(content=ft.Text("User deleted successfully!"))
         )
@@ -290,8 +298,8 @@ class DisplayPage(ft.UserControl):
 def main(page: ft.Page):
     page.title = "User Management System"
     page.theme_mode = ft.ThemeMode.LIGHT
-    page.window_width = 1000  # Set initial window width
-    page.window_height = 800  # Set initial window height
+    page.window_width = 1000
+    page.window_height = 800
     db = Database()
     
     def switch_to_entry():
